@@ -1,0 +1,6 @@
+# SpatioTemporalTraits
+
+```@autodocs
+Modules = [SpatioTemporalTraits]
+```
+

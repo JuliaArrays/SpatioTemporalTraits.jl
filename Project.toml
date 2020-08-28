@@ -1,0 +1,13 @@
+name = "SpatioTemporalTraits"
+uuid = "6a04ffb7-1155-443c-92eb-f1f26f00354c"
+authors = ["Zachary P. Christensen <zchristensen7@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+ArrayInterface = "4fba245c-0d91-5ea0-9b3e-6abc04ee57a9"
+AxisIndices = "f52c9ee2-1b1c-4fd8-8546-6350938c7f11"
+CoordinateTransformations = "150eb455-5306-5404-9cee-2592286d6298"
+MappedArrays = "dbb5928d-eab1-5f90-85c2-b9b0edb7c900"
+Metadata = "4fb893c1-3164-4f58-823a-cb4c64eabb4f"
+NamedDims = "356022a1-0364-5f58-8944-0da4b18d706f"
+Rotations = "6038ab10-8711-5258-84ad-4b1120ba62dc"
