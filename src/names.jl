@@ -28,8 +28,6 @@ end
     return false
 end
 
-
-# TODO port docs to SpatioTemporalTraits
 """
     named_axes(A) -> NamedTuple{names}(axes)
 
@@ -59,52 +57,32 @@ end
 
 @generated default_names(::Val{N}) where {N} = :($(ntuple(i -> Symbol(:dim_, i), N)))
 
-macro formalize_dimension_name(name, name_dim, dim_noerror_name)
-    nname = Symbol(:n, name)
-    nname_doc = """
-        $nname(x) -> Int
+macro formalize_dimension_name(name, name_dim)
+    nnames = Symbol(:n, name, :s)
+    nnames_doc = """
+        $nnames(x) -> Int
 
-    Returns the size along the dimension corresponding to the $name.
+    Returns the number of unique $name values. If `x` has a dimension corresponding to $name
+    then the length of the corresponding axis is returned.
     """
 
-    name_keys = Symbol(name, :_keys)
-    name_keys_doc = """
-        $name_keys(x)
+    names = Symbol(name, :s)
+    names_doc = """
+        $names(x)
 
-    Returns the keys corresponding to the $name axis
+    Returns the keys corresponding to the $name axis.
     """
 
     name_indices = Symbol(name, :_indices)
     name_indices_doc = """
         $name_indices(x)
 
-    Returns the indices corresponding to the $name axis
-    """
- 
-    has_namedim = Symbol(:has_, name, :dim)
-    has_namedim_doc = """
-        $has_namedim(x) -> Bool
-
-    Returns `true` if `x` has a dimension corresponding to $name.
+    Returns the indices corresponding to the $name axis.
     """
 
-    name_axis = Symbol(name, :_axis)
-    name_axis_doc = """
-        $name_axis(x)
-
-    Returns the axis corresponding to the $name dimension.
-    """
-
-    name_axis_itr = """
-        $name_axis(x, window_size=nothing[; first_pad=nothing, last_pad=nothing, stride=nothing, dilation=nothing])
-
-    Returns an `AxisIterator` along the $name axis.
-    """
-
-
-    name_select = Symbol(:select_, name)
-    name_select_doc = """
-        $name_select(x, i)
+    select_name = Symbol(:select_, name)
+    select_name_doc = """
+        $select_name(x, i)
 
     Return a view of all the data of `x` where the index for the $name dimension equals `i`.
     """
@@ -113,121 +91,35 @@ macro formalize_dimension_name(name, name_dim, dim_noerror_name)
     each_name_doc = """
         $each_name(x)
 
-    Create a generator that iterates over the $name dimensions `A`, returning views that select
-    all the data from the other dimensions in `A`.
+    Create a generator that iterates over the $name dimensions `x`, returning views that select
+    all the data from the other dimensions in `x`.
     """
- 
+
+    iterate_name = Symbol(:iterate_, name)
+    iterate_name_doc = """
+        $iterate_name(x; kwargs...)
+
+    """
+
     esc(quote
+        @doc $nnames_doc
+        @inline $nnames(x) = Base.size(x, $name_dim(x))
 
-        @doc $nname_doc
-        @inline $nname(x) = Base.size(x, $name_dim(x))
-
-        @doc $name_keys_doc
-        @inline $name_keys(x) = keys(axes(x, $name_dim(x)))
+        @doc $names_doc
+        @inline $names(x) = keys(axes(x, $name_dim(x)))
 
         @doc $name_indices_doc
-        @inline $name_indices(x) = ArrayInterface.indices(axes(x, $name_dim(x)))
+        @inline $name_indices(x) = eachindex(axes(x, $name_dim(x)))
 
-        @doc $has_namedim_doc
-        @inline $has_namedim(x) = !($dim_noerror_name(dimnames(x)) === 0)
-
-        @doc $name_axis_doc
-        @inline $name_axis(x) = axes(x, $name_dim(x))
-
-        @doc $name_axis_itr
-        @inline function $name_axis(x, sz; kwargs...)
-            return SpatioTemporalTraits.iterate_indices(axes(x, $name_dim(x)); window_size=sz, kwargs...)
-        end
-
-        @doc $name_select_doc
-        @inline $name_select(x, i) = selectdim(x, $name_dim(x), i)
+        @doc $select_name_doc
+        @inline $select_name(x, i) = selectdim(x, $name_dim(x), i)
 
         @doc $each_name_doc
         @inline $each_name(x) = eachslice(x, dims=$name_dim(x))
- 
-       nothing
+
+        @doc $iterate_name_doc
+        @inline $iterate_name(x; kwargs...) = axis_iterator(axes(x, $name_dim(x)); kwargs...)
+
+        nothing
     end)
 end
-
-
-# we have to abuse `@pure` a bit with names to ensure constant propagation
-@pure _is_observation(x::Symbol) = (x === :obs) | (x === :observations) | (x === :samples)
-@pure function _is_channel(x::Symbol)
-    return x === :channels || x === :Channels || x === :Color || x === :color
-end
-
-@pure function _find_observation_dim(x::Tuple{Vararg{Symbol,N}}) where {N}
-    for i in Base.OneTo(N)
-        _is_observation(getfield(x, i, false)) && return i
-    end
-    return 0
-end
-
-@pure function _find_channel_dim(x::Tuple{Vararg{Symbol,N}}) where {N}
-    for i in Base.OneTo(N)
-        _is_channel(getfield(x, i, false)) && return i
-    end
-    return 0
-end
-
-"""
-    observationdim(x) -> Int
-
-Returns the observation dimension that represents observations. If no observation
-dimension is found an error is thrown.
-"""
-@inline function observationdim(x)
-    d = _find_observation_dim(dimnames(x))
-    if d === 0
-        throw(ArgumentError("Unable to find observation dimension for " * repr(x)))
-    else
-        return d
-    end
-end
-
-@formalize_dimension_name(observation, observationdim, _find_observation_dim)
-
-"""
-    channeldim(x) -> Int
-
-Returns the channel dimension that represents observations. If no channel dimension
-is found an error is thrown.
-"""
-@inline function channeldim(x)
-    d = _find_channel_dim(dimnames(x))
-    if d === 0
-        throw(ArgumentError("Unable to find channel dimension for " * repr(x)))
-    else
-        return d
-    end
-end
-
-@formalize_dimension_name(channel, channeldim, _find_channel_dim)
-
-@pure _is_time(x::Symbol) = x === :time || x === :Time
-
-@pure function _find_time_dim(x::Tuple{Vararg{Symbol,N}}) where {N}
-    for i in Base.OneTo(N)
-        _is_time(getfield(x, i, false)) && return i
-    end
-    return 0
-end
-
-"""
-    timedim(x) -> Int
-
-Returns the dimension that represents time. If no time dimension is found it is
-assumed that this is is a single time point and the time dimension is `ndims(x) + 1`.
-"""
-@inline function timedim(x)
-    d = _find_time_dim(dimnames(x))
-    if d === 0
-        return ndims(x) + 1
-    else
-        return d
-    end
-end
-
-
-@formalize_dimension_name(time, timedim, _find_time_dim)
-

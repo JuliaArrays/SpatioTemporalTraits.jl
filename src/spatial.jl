@@ -1,12 +1,67 @@
 
-@pure _is_spatial(x::Symbol) = !(_is_time(x)) || !(_is_observation(x)) || !(_is_channel(x))
+@pure function _is_spatial(x::Symbol)
+    if x === :obs || x === :observations || x === :samples || :observation ||
+        x === :channels || x === :Channels || :channel || :Channel ||
+        x === :time || x === :Time
+        return false
+    else
+        return true
+    end
+end
+
+"""
+    spatialdims(x) -> Tuple{Vararg{Int}}
+
+Return a tuple listing the spatial dimensions of `img`.
+Note that a better strategy may be to use ImagesAxes and take slices along the time axis.
+"""
+@inline function spatialdims(x)
+    if has_dimnames(x)
+        return _spatialdims(Val(dimnames(x)))
+    else
+        return ntuple(+, Val(min(ndims(x), 3)))
+    end
+end
+
+spatialdims(img::AbstractMappedArray) = spatialdims(parent(img))
+function spatialdims(img::AbstractMultiMappedArray)
+    ps = traititer(spatialdims, parent(img)...)
+    checksame(ps)
+end
+@inline function spatialdims(img::SubArray)
+    return _subarray_offset(0, spatialdims(parent(img)), img.indices...)
+end
+@inline _subarray_offset(off, x, i::Real, inds...) =
+    _subarray_offset(off-1, tail(x), inds...)
+@inline _subarray_offset(off, x, i, inds...) =
+    (x[1]+off, _subarray_offset(off, tail(x), inds...)...)
+_subarray_offset(off, x::Tuple{}) = ()
+
+
+@inline function spatialdims(img::Base.PermutedDimsArray{T,N,perm,iperm}) where {T,N,perm,iperm}
+    return _getindex_tuple(spatialdims(parent(img)), iperm)
+end
+@generated function _spatialdims(::Val{L}) where {L}
+    out = Expr(:tuple)
+    for i in Base.OneTo(length(L))
+        if _is_spatial(L[i])
+            push!(out.args, i)
+        end
+    end
+    quote
+        return $out
+    end
+end
+
 
 """
     spatial_order(x) -> Tuple{Vararg{Symbol}}
 
 Returns the `dimnames` of `x` that correspond to spatial dimensions.
 """
-@inline function spatial_order(::T) where {T}
+spatial_order(x) = spatial_order(typeof(x))
+
+@inline function spatial_order(::Type{T}) where {T}
     if has_dimnames(T)
         return _spatial_order(Val(dimnames(T)))
     else
@@ -32,54 +87,11 @@ end
 end
 
 """
-    spatialdims(x) -> Tuple{Vararg{Int}}
-
-Return a tuple listing the spatial dimensions of `img`.
-Note that a better strategy may be to use ImagesAxes and take slices along the time axis.
-"""
-@inline function spatialdims(x::T) where {T}
-    if has_dimnames(x)
-        return _spatialdims(Val(dimnames(x)))
-    else
-        return ntuple(+, Val(min(ndims(T), 3)))
-    end
-end
-
-spatialdims(img::AbstractMappedArray) = spatialdims(parent(img))
-function spatialdims(img::AbstractMultiMappedArray)
-    ps = traititer(spatialdims, parent(img)...)
-    checksame(ps)
-end
-@inline function spatialdims(img::SubArray)
-    return _subarray_offset(0, spatialdims(parent(img)), img.indices...)
-end
-@inline function spatialdims(img::Base.PermutedDimsArray{T,N,perm,iperm}) where {T,N,perm,iperm}
-    return _getindex_tuple(spatialdims(parent(img)), iperm)
-end
-
-@generated function _spatialdims(::Val{L}) where {L}
-    keep_names = Int[]
-    i = 1
-    itr = 0
-    while (itr < 3) && (i <= length(L))
-        if is_spatial(getfield(L, i))
-            push!(keep_names, i)
-            itr += 1
-        end
-        i += 1
-    end
-    quote
-        return $(keep_names...,)
-    end
-end
-
-"""
     spatial_axes(x) -> Tuple
 
 Returns a tuple of each axis corresponding to a spatial dimensions.
 """
 @inline spatial_axes(x) = _filter_axes(named_axes(x), spatial_order(x))
-
 @inline function _filter_axes(naxs::NamedTuple, d::Tuple{Vararg{Any,N}}) where {N}
     return ntuple(i -> getfield(naxs, getfield(d, i)), Val(N))
 end
@@ -235,17 +247,9 @@ function _spatial_directions(ps::NTuple{N,Any}) where N
     return ntuple(i->ntuple(d->d==i ? ps[d] : zero(ps[d]), Val(N)), Val(N))
 end
 
-@inline _subarray_filter(x, i::Real, inds...) =
-    _subarray_filter(tail(x), inds...)
-@inline _subarray_filter(x, i, inds...) =
-    (x[1], _subarray_filter(tail(x), inds...)...)
+@inline _subarray_filter(x, i::Real, inds...) = _subarray_filter(tail(x), inds...)
+@inline _subarray_filter(x, i, inds...) = (x[1], _subarray_filter(tail(x), inds...)...)
 _subarray_filter(x::Tuple{}) = ()
-
-@inline _subarray_offset(off, x, i::Real, inds...) =
-    _subarray_offset(off-1, tail(x), inds...)
-@inline _subarray_offset(off, x, i, inds...) =
-    (x[1]+off, _subarray_offset(off, tail(x), inds...)...)
-_subarray_offset(off, x::Tuple{}) = ()
 
 @inline _getindex_tuple(t::Tuple, inds::Tuple) =
     (t[first(inds)], _getindex_tuple(t, tail(inds))...)

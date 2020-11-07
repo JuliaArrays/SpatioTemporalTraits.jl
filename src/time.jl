@@ -1,4 +1,36 @@
 
+@pure _is_time(x::Symbol) = x === :time || x === :Time
+@pure function _time_dim(x::Tuple{Vararg{Symbol,N}}) where {N}
+    @inbounds for i in Base.OneTo(N)
+        _is_time(getfield(x, i)) && return i
+    end
+    return 0
+end
+
+"""
+    timedim(x) -> Int
+
+Returns the dimension that represents time. If no time dimension is found it is
+assumed that this is is a single time point and the time dimension is `ndims(x) + 1`.
+"""
+@inline function timedim(x)
+    d = _timedim(dimnames(x))
+    if d === 0
+        return ndims(x) + 1
+    else
+        return d
+    end
+end
+
+"""
+    has_timedim(x) -> Bool
+
+Returns `true` if `x` has a dimension corresponding to time.
+"""
+@inline has_timedim(x) = _time_dim(dimnames(x)) !== 0
+
+@formalize_dimension_name(time, timedim)
+
 """
     time_end(x)
 
@@ -278,4 +310,111 @@ _shift_axes(::Tuple{}, ::Tuple{}, ::Tuple{}, dim::Int) = ()
         )
     end
 end
+
+"""
+    collapse(f, x; dims, window_size=nothing, first_pad=nothing, last_pad=nothing,
+             stride=nothing, dilation=nothing)
+
+collapse and array `x` along a dimension or tuple of dimensions `dims`. The indices along
+collapsed dimensions are specified by additional kwargs. If no other kwargs are specified
+the entire dimension is collapsed to a single value.
+
+```jldoctest
+julia> x = NamedAxisArray(reshape(1:40, 2, 10, 2); x = [:one, :two], y = 1.0:10.0, z = [:three, :four]);
+
+julia> collapse(sum, x; dims=:y, window_size=2)
+julia> collapse(sum, x; dims=:y, window_size=2)
+2×5×2 NamedDimsArray(AxisArray(::Array{Int64,3}
+  • axes:
+     x = [:one, :two]
+     y = 1.0:2.0:9.0
+     z = [:three, :four]
+))
+[:, :, three] =
+        1.0  3.0   5.0   7.0   9.0
+  :one  4    12    20    28    36
+  :two  6    14    22    30    38
+
+[:, :, four] =
+        1.0   3.0   5.0   7.0   9.0
+  :one  44    52    60    68    76
+  :two  46    54    62    70    78
+
+
+```
+"""
+@inline function collapse(
+    f,
+    x;
+    dims,
+    window_size=nothing,
+    first_pad=nothing,
+    last_pad=nothing,
+    stride=nothing,
+    dilation=nothing
+)
+
+    return apply_collapse(
+        f,
+        x,
+        NDAxisIterator(_collapse_iterator(x, dims, window_size, first_pad, last_pad, stride, dilation))
+    )
+end
+
+# produce the iterator that collapses the array
+@inline function _collapse_iterator(x, dims, ws, fp, lp, s, d)
+    return _collapse_iterator(x, (dims,), ws, fp, lp, s, d)
+end
+@inline function _collapse_iterator(x, dims::Tuple{Vararg{<:Any,N}}, ws, fp, lp, s, d) where {N}
+    D = Val(N)
+    return __collapse_iterator(
+        axes(x),
+        NamedDims.dim(dimnames(x), dims),  # just in case we have named dimensions
+        _to_tuple(ws, D),
+        _to_tuple(fp, D),
+        _to_tuple(lp, D),
+        _to_tuple(s, D),
+        _to_tuple(d, D)
+    )
+
+end
+@inline function __collapse_iterator(axs::Tuple{Vararg{<:Any,D}}, dims::Tuple{Vararg{Int,N}}, ws, fp, lp, s, d) where {D,N}
+    ntuple(Val(D)) do i
+        dims_index = 0
+        @inbounds for dim_i in OneTo(N)
+            if dims[dim_i] === i
+                dims_index = dim_i
+                break
+            end
+        end
+        if dims_index === 0
+            return eachindex(@inbounds(axs[i]))
+        else
+            return _axis_iterator(
+                @inbounds(axs[i]),
+                @inbounds(ws[dims_index]),
+                @inbounds(fp[dims_index]),
+                @inbounds(lp[dims_index]),
+                @inbounds(s[dims_index]),
+                @inbounds(d[dims_index])
+            )
+        end
+    end
+end
+
+# collapse_axes
+collapse_axis(axis, itr) = ArrayInterface.to_axis(axis, _all_firsts(itr))
+
+# all arguments should be ready at this point for applying the collapse
+@inline function apply_collapse(f, x::NamedDimsArray{L}, itr) where {L}
+    return NamedDimsArray{L}(apply_collapse(f, parent(x), itr))
+end
+@inline function apply_collapse(f, x::AxisArray, itr)
+    ArrayInterface.unsafe_reconstruct(
+        x,
+        apply_collapse(f, parent(x), itr);
+        axes=map(collapse_axis, axes(x), itr.axis_iterators)
+    )
+end
+@inline apply_collapse(f, x, itr) = [f(@inbounds(x[i.iterators...])) for i in itr]
 
