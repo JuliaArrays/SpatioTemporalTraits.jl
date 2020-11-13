@@ -39,11 +39,7 @@ has_dimnames(x) = has_dimnames(typeof(x))
 has_dimnames(::Type{T}) where {T} = false
 has_dimnames(::Type{T}) where {T<:NamedDimsArray} = true
 
-#include("sliding_window.jl")
-#include("spatial.jl")
-#include("names.jl")
-#include("time.jl")
 include("names.jl")
-#include("methods.jl")
+include("methods.jl")
 
 end # module

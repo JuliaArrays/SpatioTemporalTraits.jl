@@ -17,6 +17,8 @@ end
 
 """
     SlidingWindow{B,W}
+
+An iterators for a sliding window along one dimension of an axis.
 """
 struct SlidingWindow{B<:AbstractRange,W<:AbstractRange}
     bounds::B
@@ -315,31 +317,19 @@ julia> lag([1 2 3; 4 5 6; 7 8 9], 1, 2)
 ```
 """
 @inline lag(x, nshift; dims) = _lag(x, nshift, to_dims(x, dims))
-
-function _lag(x, nshift, dims)
+@inline function _lag(x, nshift::Integer, dim)
+    inds = _lag_indices(Val(N), axes(x), nshift, dim)
+    return unsafe_reconstruct(
+        x,
+        @inbounds(x[inds...]);  # TODO ensure that we are really producing inbounds indices
+        axes=to_axes(x, inds)
+    )
 end
-
-@inline function lag(A::AbstractArray{T,N}, nshift::Integer, dim::Integer) where {T,N}
-    return A[_lag_indices(Val(N), axes(A), nshift, dim)...]
-end
-
-@inline function lag(A::AxisArray{T,N}, nshift::Integer, dim::Int) where {T,N}
-    indexing_indices = _lag_indices(Val(N), axes(A), nshift, dim)
-    p = @inbounds(A[indexing_indices...])
-    to_axes(A, _shift_axes(axes(A), indexing_indices, axes(p), dim))
-    axs = 
-    return unsafe_reconstruct(A, p, axs)
-end
-
-function lag(A::NamedAxisArray, dim::Int, n::Int)
-    return NamedDimsArray{dimnames(A)}(lag(parent(A), dim, n))
-end
-
-@inline function lag(A::AbstractArray{T,N}, nshift::Int) where {T,N}
+@inline function lag(x, nshift::Int)
     if has_timedim(A)
-        return lag(A, nshift, timedim(A))
+        return _lag(x, nshift, timedim(x))
     else
-        return lag(A, nshift, N)
+        return _lag(x, nshift, N)
     end
 end
 
@@ -400,26 +390,20 @@ julia> lead([1 2 3; 4 5 6; 7 8 9], 1, 2)
 
 ```
 """
-@inline function lead(A::AbstractArray{T,N}, nshift::Integer, dim::Integer) where {T,N}
-    return A[_lead_indices(Val(N), axes(A), nshift, dim)...]
+@inline lead(x, nshift::Integer; dims) = _lead(x, nshift, to_dims(x, dims))
+@inline function _lead(x, nshift::Integer, dims)
+    inds = _lead_indices(Val(N), axes(x), nshift, dim)
+    return unsafe_reconstruct(
+        x,
+        @inbounds(x[inds...]);  # TODO ensure that we are really producing inbounds indices
+        axes=to_axes(x, inds)
+    )
 end
-
-@inline function lead(A::AxisArray{T,N}, nshift::Integer, dim::Int) where {T,N}
-    indexing_indices = _lead_indices(Val(N), axes(A), nshift, dim)
-    p = parent(A)[indexing_indices...]
-    axs = _shift_axes(axes(A), indexing_indices, axes(p), dim)
-    return unsafe_reconstruct(A, p, axs)
-end
-
-function lead(A::NamedAxisArray, dim::Int, n::Int)
-    return NamedDimsArray{dimnames(A)}(lead(parent(A), dim, n))
-end
-
-@inline function lead(A::AbstractArray{T,N}, nshift::Int) where {T,N}
-    if has_timedim(A)
-        return lead(A, nshift, timedim(A))
+@inline function lead(x::AbstractArray{T,N}, nshift::Int) where {T,N}
+    if has_timedim(x)
+        return _lead(x, nshift, timedim(x))
     else
-        return lead(A, nshift, N)
+        return _lead(x, nshift, N)
     end
 end
 
@@ -432,70 +416,6 @@ end
         else
             Colon()
         end
-    end
-end
-
-@inline function _noshift_axis(axis::A, inds::I) where {A,I}
-    if is_indices_axis(axis)
-        return to_axis(axis, nothing, inds, false)
-    else
-        return to_axis(axis, keys(axis), inds, false)
-    end
-end
-
-@inline function _shift_axis(
-    axis::AbstractAxis,
-    indexing_index::AbstractUnitRange,
-    parent_index::AbstractUnitRange
-)
-
-    if is_indices_axis(axis)
-        return to_axis(
-            axis,
-            nothing,
-            parent_index,
-            false,
-        )
-    else
-        return to_axis(
-            axis,
-            @inbounds(keys(axis)[indexing_index]),
-            parent_index,
-            false,
-        )
-    end
-end
-
-_shift_axes(::Tuple{}, ::Tuple{}, ::Tuple{}, dim::Int) = ()
-@inline function _shift_axes(
-    old_axes::Tuple,
-    indexing_indices::Tuple,
-    parent_indices::Tuple,
-    dim::Int
-)
-
-    if dim === 1
-        return (
-            _shift_axis(
-                first(old_axes),
-                first(indexing_indices),
-                first(parent_indices),
-            ),
-            map(_noshift_axis, tail(old_axes), tail(parent_indices))...
-        )
-    else
-        return (
-            _noshift_axis(
-                first(old_axes),
-                first(parent_indices)
-            ),
-            _shift_axes(
-                tail(old_axes),
-                tail(indexing_indices),
-                tail(parent_indices),
-                dim - 1
-            )...
-        )
     end
 end
 
@@ -592,16 +512,19 @@ end
 # collapse_axes
 collapse_axis(axis, itr) = ArrayInterface.to_axis(axis, _all_firsts(itr))
 
-# all arguments should be ready at this point for applying the collapse
-@inline function apply_collapse(f, x::NamedDimsArray{L}, itr) where {L}
-    return NamedDimsArray{L}(apply_collapse(f, parent(x), itr))
+@inline function apply_collapse(f, x, itr)
+    if has_namedims(x)
+        return unsafe_reconstruct(
+            x,
+            [f(@inbounds(view(x, i.iterators...))) for i in itr];
+            axis = map(collapse_axis, axes(x), itr.sliding_windows),
+            dimnames = Val(dimnames(x))
+        )
+    else
+        return unsafe_reconstruct(
+            x,
+            [f(@inbounds(view(x, i.iterators...))) for i in itr];
+            axis = map(collapse_axis, axes(x), itr.sliding_windows)
+        )
+    end
 end
-@inline function apply_collapse(f, x::AxisArray, itr)
-    ArrayInterface.unsafe_reconstruct(
-        x,
-        apply_collapse(f, parent(x), itr);
-        axes=map(collapse_axis, axes(x), itr.sliding_windows)
-    )
-end
-@inline apply_collapse(f, x, itr) = [f(@inbounds(x[i.iterators...])) for i in itr]
-
