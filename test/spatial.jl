@@ -34,7 +34,7 @@
     @testset "units, time" begin
         s = u"s" # again, global const
         A = NamedAxisArray(reshape(1:12, 3, 4), x = 1:3, time = 1s:1s:4s)
-        @test @inferred(time_keys(A)) == 1s:1s:4s
+        @test @inferred(times(A)) == 1s:1s:4s
         @test has_timedim(A)
         @test timedim(A) == 2
         @test ntime(A) == 4
@@ -50,7 +50,7 @@
     @testset "units, time first" begin
         s = u"s" # global const
         A = NamedAxisArray(reshape(1:12, 4, 3), time = 1s:1s:4s, x = 1:3)
-        @test @inferred(time_keys(A)) === 1s:1s:4s
+        @test @inferred(times(A)) === 1s:1s:4s
         @test has_timedim(A)
         @test timedim(A) == 1
         @test ntimes(A) == 4

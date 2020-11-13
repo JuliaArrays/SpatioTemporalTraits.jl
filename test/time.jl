@@ -6,12 +6,11 @@
     @test @inferred(assert_timedim_last(nia)) == nothing
     @test_throws ErrorException assert_timedim_last(NamedAxisArray(reshape(1:6, 3, 2), time = 3.0:5.0, x = 2:3))
     @test !has_timedim(parent(nia))
-    @test @inferred(time_keys(nia)) == 3:5
+    @test @inferred(times(nia)) == 3:5
     @test @inferred(ntime(nia)) == 3
     @test @inferred(time_indices(nia)) == 1:3
     @test @inferred(timedim(nia)) == 2
     @test @inferred(select_time(nia, 2)) == selectdim(parent(parent(nia)), 2, 2)
-    @test @inferred(time_axis_type(nia)) <: Float64
     @test @inferred(time_end(nia)) == 5.0
     @test @inferred(onset(nia)) == 3.0
     @test @inferred(duration(nia)) == 3
@@ -44,23 +43,24 @@
     @testset "lead" begin
         A = [1 2 3; 4 5 6; 7 8 9]
         A_axes = AxisArray(A,(1:3, (1:3)s));
-        A_named_axes = NamedAxisArray{(:time,:_)}(A, (1:3, (1:3)s))
+        A_named_axes = NamedAxisArray{(:time, :_)}(A, (1:3, (1:3)s))
         @testset "Array" begin
             @test @inferred(lead(A, 1, 1)) == [4 5 6; 7 8 9]
             @test @inferred(lead(A, 1, 2)) == [2 3; 5 6; 8 9]
         end
         @testset "AxisArray" begin
-            @test @inferred lead(A_axes, 1, 1) == [4 5 6; 7 8 9]
+            @test @inferred(lead(A_axes, 1, 1)) == [4 5 6; 7 8 9]
             @test @inferred(lead(A_axes, 1, 2)) == [2 3; 5 6; 8 9]
         end
         @testset "NamedAxisArray" begin
-            @test @inferred lead(A_named_axes, 1, 1) == [4 5 6; 7 8 9]
+            @test @inferred(lead(A_named_axes, 1, 1)) == [4 5 6; 7 8 9]
             @test @inferred(lead(A_named_axes, 1, 2)) == [2 3; 5 6; 8 9]
         end
         # this has a mutable axis and therefore it needs to handle this in a type
         # stable way when recreating the axes
         @test lead(NamedAxisArray{(:time,)}(collect(1:5), (1:5)s), 1) == [2, 3, 4, 5]
     end
+
     @testset "lag" begin
         A = [1 2 3; 4 5 6; 7 8 9]
         A_axes = AxisArray(A,(1:3, (1:3)s));

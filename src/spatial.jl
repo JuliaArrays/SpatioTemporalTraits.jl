@@ -1,25 +1,14 @@
 
-@pure function _is_spatial(x::Symbol)
-    if x === :obs || x === :observations || x === :samples || :observation ||
-        x === :channels || x === :Channels || :channel || :Channel ||
-        x === :time || x === :Time
-        return false
-    else
-        return true
+#= TODO we shouldn't need these
+@generated function _spatialdims(::Val{L}) where {L}
+    out = Expr(:tuple)
+    for i in Base.OneTo(length(L))
+        if _is_spatial(L[i])
+            push!(out.args, i)
+        end
     end
-end
-
-"""
-    spatialdims(x) -> Tuple{Vararg{Int}}
-
-Return a tuple listing the spatial dimensions of `img`.
-Note that a better strategy may be to use ImagesAxes and take slices along the time axis.
-"""
-@inline function spatialdims(x)
-    if has_dimnames(x)
-        return _spatialdims(Val(dimnames(x)))
-    else
-        return ntuple(+, Val(min(ndims(x), 3)))
+    quote
+        return $out
     end
 end
 
@@ -36,82 +25,12 @@ end
 @inline _subarray_offset(off, x, i, inds...) =
     (x[1]+off, _subarray_offset(off, tail(x), inds...)...)
 _subarray_offset(off, x::Tuple{}) = ()
-
-
 @inline function spatialdims(img::Base.PermutedDimsArray{T,N,perm,iperm}) where {T,N,perm,iperm}
     return _getindex_tuple(spatialdims(parent(img)), iperm)
 end
-@generated function _spatialdims(::Val{L}) where {L}
-    out = Expr(:tuple)
-    for i in Base.OneTo(length(L))
-        if _is_spatial(L[i])
-            push!(out.args, i)
-        end
-    end
-    quote
-        return $out
-    end
-end
+=#
 
-
-"""
-    spatial_order(x) -> Tuple{Vararg{Symbol}}
-
-Returns the `dimnames` of `x` that correspond to spatial dimensions.
-"""
-spatial_order(x) = spatial_order(typeof(x))
-
-@inline function spatial_order(::Type{T}) where {T}
-    if has_dimnames(T)
-        return _spatial_order(Val(dimnames(T)))
-    else
-        return default_names(Val(min(3, ndims(T))))
-    end
-end
-
-@generated function _spatial_order(::Val{L}) where {L}
-    keep_names = Symbol[]
-    i = 1
-    itr = 0
-    while (itr < 3) && (i <= length(L))
-        n = getfield(L, i)
-        if is_spatial(n)
-            push!(keep_names, n)
-            itr += 1
-        end
-        i += 1
-    end
-    quote
-        return $(keep_names...,)
-    end
-end
-
-"""
-    spatial_axes(x) -> Tuple
-
-Returns a tuple of each axis corresponding to a spatial dimensions.
-"""
-@inline spatial_axes(x) = _filter_axes(named_axes(x), spatial_order(x))
-@inline function _filter_axes(naxs::NamedTuple, d::Tuple{Vararg{Any,N}}) where {N}
-    return ntuple(i -> getfield(naxs, getfield(d, i)), Val(N))
-end
-
-
-"""
-    spatial_axes(x, sz; kwargs...)
-
-Returns an `AxesIterator` along the spatial axes.
-"""
-@inline function spatial_axes(x, sz; kwargs...)
-    return AxesIterator(CartesianIndices(spatial_axes(x)), sz; kwargs...)
-end
-
-"""
-    spatial_size(x) -> Tuple{Vararg{Int}}
-
-Return a tuple listing the sizes of the spatial dimensions of the image.
-"""
-@inline spatial_size(x) =  map(i -> size(x, i), spatialdims(x))
+#=
 spatial_size(img::AbstractMappedArray) = size_spatial(parent(img))
 function spatial_size(img::AbstractMultiMappedArray)
     ps = traititer(spatial_size, parent(img)...)
@@ -124,62 +43,7 @@ end
 @inline function spatial_size(img::Base.PermutedDimsArrays.PermutedDimsArray{T,N,perm,iperm}) where {T,N,perm,iperm}
     return _getindex_tuple(spatial_size(parent(img)), iperm)
 end
-
-"""
-    spatial_indices(x)
-
-Return a tuple with the indices of the spatial dimensions of the image. Defaults
-to the same as `indices`, but using `NamedDimsArray` you can mark some axes as
-being non-spatial.
-"""
-@inline spatial_indices(x) = map(values, spatial_axes(x))
-
-"""
-    spatial_keys(x)
-
-Returns the keys along each spatial dimension.
-"""
-@inline spatial_keys(x) = map(keys, spatial_axes(x))
-
-"""
-    pixel_spacing(x)
-
-Return a tuple representing the separation between adjacent pixels along each axis
-of the image. Derived from the step size of each element of `spatial_keys`.
-"""
-@inline function pixel_spacing(x)
-    map(spatial_keys(x)) do ks_i
-        if AxisIndices.StaticRanges.has_step(ks_i)
-            return step(ks_i)
-        else
-            return 1
-        end
-    end
-end
-
-"""
-    spatial_offset(x)
-
-The offset of each dimension (i.e., where each spatial axis starts).
-"""
-spatial_offset(x) = map(first, spatial_keys(x))
-
-"""
-    sdims(x)
-
-Return the number of spatial dimensions in the image. Defaults to the same as
-`ndims`, but with `NamedDimsArray` you can specify that some dimensions correspond
-to other quantities (e.g., time) and thus not included by `sdims`.
-"""
-@inline function sdims(x)
-    cnt = 0
-    for name in dimnames(x)
-        if is_spatial(name)
-            cnt += 1
-        end
-    end
-    return cnt
-end
+=#
 
 """
     affine_map(x) -> AffineMap
@@ -216,19 +80,6 @@ function _spatial_directions_to_rotation(::Type{R}, sd::NTuple{3,NTuple{3,T}}) w
     )
 end
 
-"""
-    spatial_directions(img) -> (axis1, axis2, ...)
-
-Return a tuple-of-tuples, each `axis[i]` representing the displacement
-vector between adjacent pixels along spatial axis `i` of the image
-array, relative to some external coordinate system ("physical
-coordinates").
-
-By default this is computed from `pixel_spacing`, but you can set this
-manually using ImagesMeta.
-"""
-spatial_directions(img::AbstractArray) = _spatial_directions(pixel_spacing(img))
-
 # FIXME
 spatial_directions(img::AbstractMappedArray) = spatial_directions(parent(img))
 function spatial_directions(img::AbstractMultiMappedArray)
@@ -264,3 +115,22 @@ function checksame(t::Tuple)
     return val1
 end
 
+# TODO decide what to do about MappedArrays
+
+using MappedArrays
+using MappedArrays: AbstractMultiMappedArray, MultiMappedArray, ReadonlyMultiMappedArray
+
+function has_dimnames(::Type{ReadonlyMultiMappedArray{T,N,AAs,F}}) where {T,N,AAs,F}
+    return _multi_array_has_dimnames(AAs)
+end
+function has_dimnames(::Type{MultiMappedArray{T,N,AAs,F,Finv}}) where {T,N,AAs,F,Finv}
+    return _multi_array_has_dimnames(AAs)
+end
+
+# FIXME this doesn't account for when there are incompatable names from multiple arrays
+@inline function _multi_array_has_dimnames(::Type{T}) where {T}
+    for T_i in T.parameters
+        has_dimnames(T_i) && return true
+    end
+    return false
+end
