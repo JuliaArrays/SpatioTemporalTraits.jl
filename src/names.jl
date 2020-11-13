@@ -172,9 +172,30 @@ manually using ImagesMeta.
 """
 spatial_directions(img::AbstractArray) = _spatial_directions(pixel_spacing(img))
 
-# TODO document @defdim(Name, name, dim_not_found)
-macro defdim(Name, name, dim_not_found)
-    IsName = Symbol(:Is, Name)
+"""
+    @defdim(Name, name, dim_not_found)
+
+Defines internal code for giving assigning multiple `Symbol` names to a single meaning
+for a dimension. For example, the following code formalizes internal code to identify and
+access the time dimension (as specified by the first argument `time`) and the second
+argument is an anonymous function that acts on anything that doesn't have a time dimension.
+In this case, if a time dimension isn't identified we assume it is 1 more than the last
+dimension.
+
+```julia
+@defdim time (x -> ndims(x) + 1)
+
+@is_time :time
+
+@is_time :Time
+```
+
+The last two arguments use the `@is_time` macro produced by `@defdim` to assert that any
+dimensions with named `:time` or `:Time` should be considered time dimensions.
+
+"""
+macro defdim(name, dim_not_found)
+    IsName = Symbol(:Is, uppercasefirst(string(name)))
 
     _is_name = Symbol(:_is_, name)
 
@@ -313,7 +334,7 @@ macro defdim(Name, name, dim_not_found)
     end)
 end
 
-@defdim Time time (x -> ndims(x) + 1)
+@defdim time (x -> ndims(x) + 1)
 
 @is_time :time
 
