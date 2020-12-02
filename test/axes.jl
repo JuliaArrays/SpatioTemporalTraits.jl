@@ -34,7 +34,7 @@ using SimpleTraits, Unitful
     assert_timedim_last(A)
     @test map(istimeaxis, AxisArrays.axes(A)) == (false,false)
 
-    @test @inferred(timeaxis(rand(3,5))) == nothing
+    @test @inferred(timeaxis(rand(3,5))) === nothing
 
 
     # deprecate

@@ -3,7 +3,7 @@
 
     nia = NamedAxisArray(reshape(1:6, 2, 3), x = 2:3, time = 3.0:5.0)
     @test has_timedim(nia)
-    @test @inferred(assert_timedim_last(nia)) == nothing
+    @test @inferred(assert_timedim_last(nia)) === nothing
     @test_throws ErrorException assert_timedim_last(NamedAxisArray(reshape(1:6, 3, 2), time = 3.0:5.0, x = 2:3))
     @test !has_timedim(parent(nia))
     @test @inferred(times(nia)) == 3:5
@@ -30,7 +30,7 @@
     @test TimeAxes.timestamp_type(t) <: Symbol
     @test TimeAxes.timestamp_type(typeof(t)) <: Symbol
 
-    @test TimeAxes.check_timestamp(Second, Int, Symbol) == nothing
+    @test TimeAxes.check_timestamp(Second, Int, Symbol) === nothing
     @test_throws ErrorException TimeAxes.check_timestamp(Second, Int, Int)
     @test_throws ErrorException TimeAxes.check_timestamp(Second, Int, Second)
 
