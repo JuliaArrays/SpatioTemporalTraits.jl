@@ -33,6 +33,28 @@ By default the only dimensions that are considered "time dimensions" are those t
 There may be instances you want to specify a different name refers to time, which is what `SpatioTemporalTraits.@is_time` is for.
 For example, `SpatioTemporalTraits.@is_time :hammer_time` could be used for specifying a dimension of times that you "can't touch this".
 
+## Non-dependency compatibility with SpatioTemporalTraits
+
+The following method may be called as `ensure_dim_last(x, timedim)` to produce the same result as the previous example, but it doesn't depend directly on SpatioTemporalTraits.
+```julia
+using ArrayInterface
+
+function ensure_dim_last(x, dim)
+    d = ArrayInterface.to_dims(x, dim)  # returns the integer that corresponds to the `dim`
+    N = ndims(x)
+    if N >= d
+        return x
+    else
+        perms = ntuple(i -> ifelse(N >= i, i + 1, i), Val(N))
+        return permutedims(x, perms)
+    end
+end
+
+```
+
+This is also true of packages that use `@defdim` to create new meaningful dimensions.
+That is, methods using the interface provided by ArrayInterface should be compatible with any dimensions formally defined using the tools in this package.
+
 ## Defining new dimensions
 
 We can create new meaningful dimensions using `@defdim`.
@@ -40,7 +62,7 @@ The first argument passed to `@defdim` is the suffix used for methods created (s
 The second argument is a method called when no dimension is found corresponding to the newly defined dimension.
 In this instance an error is thrown when `x` doesn't have a dimension named `:observations` or `:obs`.
 ```julia
-@defdim(
+SpatioTemporalTraits.@defdim(
     observations,
     (x -> throw(ArgumentError("$x does not have a dimension corresponding to 'observations'")))
 )
@@ -53,7 +75,7 @@ In this instance an error is thrown when `x` doesn't have a dimension named `:ob
 This will internally assert that anything that refers to an observation is not spatial.
 If we want to define a dimension that does refer to a spatial dimension we can do the following:
 ```julia
-@defdim(
+SpatioTemporalTraits.@defdim(
     horizontal,
     (x -> throw(ArgumentError("$x does not have a dimension corresponding to 'horizontal'"))),
     true
