@@ -9,7 +9,6 @@ using Base.Cartesian: @nif
 
 export
     assert_timedim_last,
-    collapse,
     duration,
     each_time,
     has_timedim,
