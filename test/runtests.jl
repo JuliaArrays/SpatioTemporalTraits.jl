@@ -1,29 +1,89 @@
 
-using AxisIndices
-using ArrayInterface
-using SpatioTemporalTraits
 using Test
 
-val_spatialdims(x) = Val(spatialdims(x))
+using SpatioTemporalTraits
+using ArrayInterface
+using ArrayInterface: dimnames, to_dims
+using Static
+using Unitful
+using Unitful: m, mm, ft, s
 
-nda = NamedDimsArray{(:w,:x,:y,:z)}(rand(2, 2,2,2));
+struct KeyedAxis{K,P<:AbstractUnitRange{Int}} <: AbstractUnitRange{Int}
+    keys::K
+    parent::P
+end
+KeyedAxis(k) = KeyedAxis(k, eachindex(k))
 
-@test @inferred(val_spatialdims(nda)) === Val((1, 2, 3))
+Base.keys(x::KeyedAxis) = getfield(x, :keys)
 
-SpatioTemporalTraits.@not_spatial :y
+Base.parent(x::KeyedAxis) = getfield(x, :parent)
 
-@test @inferred(val_spatialdims(nda)) === Val((1, 2, 4))
+Base.first(x::KeyedAxis) = first(parent(x))
+Base.last(x::KeyedAxis) = last(parent(x))
 
-SpatioTemporalTraits.@not_spatial :w
+ArrayInterface.parent_type(::Type{<:KeyedAxis{K,P}}) where {K,P} = P
 
-@test @inferred(val_spatialdims(nda)) === Val((2,4))
+Base.@propagate_inbounds Base.getindex(x::KeyedAxis, i::Integer) = parent(x)[i]
+Base.@propagate_inbounds Base.getindex(x::KeyedAxis, i::AbstractRange) = parent(x)[i]
 
-SpatioTemporalTraits.@not_spatial :x
-@test @inferred(val_spatialdims(nda)) === Val((4,))
+struct NamedIndices{dnames,T,N,P<:Union{CartesianIndices{N},LinearIndices{N}}} <: AbstractArray{T,N}
+    parent::P
 
-SpatioTemporalTraits.@not_spatial :z
-@test @inferred(val_spatialdims(nda)) === Val(())
+    function NamedIndices{D}(x::Union{LinearIndices,CartesianIndices}) where {D}
+        N = ndims(x)
+        return new{D::NTuple{N,Symbol},eltype(x),N,typeof(x)}(x)
+    end
+end
+NamedIndices(x::Union{LinearIndices,CartesianIndices}) = NamedIndices{ntuple(_->:_, Val(ndims(x)))}(x)
 
-include("sliding_window.jl")
-# TODO include("names.jl")
-include("time.jl")
+ArrayInterface.dimnames(::Type{<:NamedIndices{dnames}}) where {dnames} = static(dnames)
+function ArrayInterface.dimnames(::Type{<:NamedIndices{dnames}}, dim) where {dnames}
+    if dim > length(dnames)
+        return static(:_)
+    else
+        return static(getfield(dnames, Int(dim)))
+    end
+end
+
+ArrayInterface.parent_type(::Type{<:NamedIndices{<:Any,<:Any,<:Any,P}}) where {P} = P
+
+Base.parent(x::NamedIndices) = getfield(x, :parent)
+
+Base.getindex(x::NamedIndices, i::Vararg) = parent(x)[i...]
+
+Base.size(x::NamedIndices) = size(parent(x))
+#Base.size(x::NamedIndices, dim) = Int(ArrayInterface.size(x, to_dims(x, dim)))
+
+Base.axes(x::NamedIndices) = ArrayInterface.axes(x)
+#Base.axes(x::NamedIndices, dim) = ArrayInterface.axes(x, dim)
+
+
+x = NamedIndices{(:x, :y, :z, :time)}(
+    CartesianIndices((
+        KeyedAxis((1:2:9)m),
+        KeyedAxis((1.0:2:9)ft),
+        KeyedAxis((2:2:10)mm),
+        KeyedAxis((1:4)s)
+    )));
+
+no_time = view(x, :, :, 1:2, 1);
+
+
+
+## No time dimension
+@test_throws ArgumentError timedim(no_time)
+@test !has_timedim(no_time)
+#@test ntimes(no_time) == 1
+@test @inferred(pixel_spacing(no_time)) === (2m, 2.0ft, 2mm)
+@test @inferred(spatial_directions(no_time)) === ((2m, 0.0ft, 0mm), (0m, 2.0ft, 0mm), (0m, 0.0ft, 2mm))
+@test @inferred(spatialdims(no_time)) === (static(1), static(2), static(3))
+@test @inferred(spatial_order(no_time)) === (static(:x), static(:y), static(:z))
+@test @inferred(spatial_indices(no_time)) == ((1:2:9)m, (1.0:2.0:9.0)ft, (2:2:4)mm)
+
+## time dimension
+assert_timedim_last(x)
+@test @inferred(times(x)) == (1:4)s
+@test @inferred(has_timedim(x))
+@test @inferred(timedim(x)) === static(4)
+@test @inferred(ntimes(x)) == 4
+
