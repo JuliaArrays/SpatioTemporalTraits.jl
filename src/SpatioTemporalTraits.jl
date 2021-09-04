@@ -1,9 +1,13 @@
 module SpatioTemporalTraits
 
 using ArrayInterface
-using ArrayInterface: False, True, StaticInt, StaticSymbol
-using ArrayInterface: dimnames, has_dimnames, eachop, to_dims, static, nstatic
+using ArrayInterface: dimnames, has_dimnames, to_dims, parent_type, to_parent_dims
+using Metadata
+using Metadata: MetaArray, NoMetadata
+using Static
 using Base: tail
+
+using LinearAlgebra
 
 export
     assert_timedim_last,
@@ -11,21 +15,21 @@ export
     each_time,
     has_timedim,
     ntimes,
-    onset,
+    origin,
     pixel_spacing,
     sampling_rate,
     select_time,
     spatialdims,
     spatial_order,
-    spatial_axes,
     spatial_size,
-    spatial_keys,
-    spatial_offset,
+    spatial_indices,
+    spatial_first,
+    spatial_last,
     spatial_directions,
     timedim,
     times,
-    time_axis,
-    time_end,
+    time_first,
+    time_last,
     time_step
 
 include("spatial.jl")
