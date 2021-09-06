@@ -1,5 +1,6 @@
 [deps]
 ArrayInterface = "4fba245c-0d91-5ea0-9b3e-6abc04ee57a9"
+Metadata = "4fb893c1-3164-4f58-823a-cb4c64eabb4f"
 Static = "aedffcd0-7271-4cad-89d0-dc628f76c6d3"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
