@@ -4,6 +4,7 @@ using Test
 using SpatioTemporalTraits
 using ArrayInterface
 using ArrayInterface: dimnames, to_dims
+using Metadata
 using Static
 using Unitful
 using Unitful: m, mm, ft, s
@@ -54,8 +55,15 @@ Base.getindex(x::NamedIndices, i::Vararg) = parent(x)[i...]
 Base.size(x::NamedIndices) = size(parent(x))
 #Base.size(x::NamedIndices, dim) = Int(ArrayInterface.size(x, to_dims(x, dim)))
 
-Base.axes(x::NamedIndices) = ArrayInterface.axes(x)
-#Base.axes(x::NamedIndices, dim) = ArrayInterface.axes(x, dim)
+Base.axes(x::NamedIndices) = ArrayInterface.axes(parent(x))
+Base.axes(x::NamedIndices, dim::Integer) = _axes(axes(x), dim)
+function _axes(axs::Tuple{Vararg{Any,N}}, dim) where {N}
+    if dim > N
+        return static(1):static(1)
+    else
+        return @inbounds(axs[dim])
+    end
+end
 
 
 x = NamedIndices{(:x, :y, :z, :time)}(
@@ -68,8 +76,6 @@ x = NamedIndices{(:x, :y, :z, :time)}(
 
 no_time = view(x, :, :, 1:2, 1);
 
-
-
 ## No time dimension
 @test_throws ArgumentError timedim(no_time)
 @test !has_timedim(no_time)
@@ -79,6 +85,16 @@ no_time = view(x, :, :, 1:2, 1);
 @test @inferred(spatialdims(no_time)) === (static(1), static(2), static(3))
 @test @inferred(spatial_order(no_time)) === (static(:x), static(:y), static(:z))
 @test @inferred(spatial_indices(no_time)) == ((1:2:9)m, (1.0:2.0:9.0)ft, (2:2:4)mm)
+@test @inferred(origin(no_time)) == (1m, 1.0ft, 2mm)
+@test @inferred(spatial_last(no_time)) == (9m, 9.0ft, 4mm)
+
+mx = attach_metadata(no_time, Dict{Symbol,Any}());
+@test origin(mx) == (1m, 1.0ft, 2mm)
+metadata!(mx, :origin, (0,0,0))
+@test origin(mx) == (0, 0, 0)
+@test spatial_directions(mx) === ((2m, 0.0ft, 0mm), (0m, 2.0ft, 0mm), (0m, 0.0ft, 2mm))
+metadata!(mx, :spatial_directions, ((1, 0, 0), (0, 1, 0), (0, 0, 1)))
+@test spatial_directions(mx) === ((1, 0, 0), (0, 1, 0), (0, 0, 1))
 
 ## time dimension
 assert_timedim_last(x)
@@ -86,4 +102,5 @@ assert_timedim_last(x)
 @test @inferred(has_timedim(x))
 @test @inferred(timedim(x)) === static(4)
 @test @inferred(ntimes(x)) == 4
+
 

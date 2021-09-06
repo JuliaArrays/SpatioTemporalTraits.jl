@@ -3,14 +3,19 @@
     is_spatial(x::StaticSymbol) -> StaticBool
 
 Returns `static(true)` if `x` refers to a spatial dimension. By default, any dimension that
-isn't `:time` or `:Time` is considered spatial.
+is not one of the following is considered spatial:
+* time or Time
+* channels or Channels
 """
 is_spatial(x::Symbol) = is_spatial(static(x))
 is_spatial(x) = is_spatial(typeof(x))
 is_spatial(::Type{T}) where {T} = static(false)
 is_spatial(::Type{StaticSymbol{sym}}) where {sym} = static(true)
-is_spatial(::Type{StaticSymbol{:time}}) = static(false)
-is_spatial(::Type{StaticSymbol{:Time}}) = static(false)
+const NotSpatial = Union{StaticSymbol{:time},StaticSymbol{:Time}, StaticSymbol{:Channels},
+    StaticSymbol{:channels},StaticSymbol{:color}, StaticSymbol{:Color},
+    StaticSymbol{:observations},StaticSymbol{:Observations},StaticSymbol{:obs}}
+is_spatial(::Type{NotSpatial}) = static(false)
+
 
 @inline function ArrayInterface.to_dims(::Type{T}, ::typeof(is_spatial)) where {T}
     _to_sdims(static(0), dimnames(T), Static.nstatic(Val(ndims(T))))
@@ -33,30 +38,6 @@ _to_sdims(::StaticInt, ::Tuple{}, ::Tuple{}) = ()
         return _to_sdims(static(N + 1), tail(dn), tail(dims))
     end
 end
-
-#=
-function _to_spatialdims(dn::Tuple{Vararg{Any}}, dims::Tuple{Vararg{Any}})
-    return _to_spatialdims(is_spatial(first(dn)), dn, dims)
-end
-function _to_spatialdims(::True, dn::Tuple{Vararg{Any}}, dims::Tuple{Vararg{Any}})
-    return (first(dims), _to_spatialdims(tail(dn), tail(dims))...)
-end
-function _to_spatialdims(::False, dn::Tuple{Vararg{Any}}, dims::Tuple{Vararg{Any}})
-    return _to_spatialdims(tail(dn), tail(dims))
-end
-_to_spatialdims(dn::Tuple{}, dims::Tuple{}) = ()
-
-_max3(::Tuple{}) = ()
-_max3(x::Tuple{Any}) = x
-_max3(x::Tuple{Any,Any}) = x
-_max3(x::Tuple{Any,Any,Any}) = x
-function _max3(x::Tuple{Any,Any,Any,Vararg{Any}})
-    (@inbounds(getfield(x, 1)), @inbounds(getfield(x, 2)), @inbounds(getfield(x, 3)))
-end
-
-_spatialdims()
-=#
-
 
 """
     spatialdims(x) -> Tuple{Vararg{StaticInt}}
@@ -110,6 +91,7 @@ _spatial_length(s) = last(s) - first(s) + step(s)
 Returns the keys along each spatial dimension.
 """
 @inline spatial_indices(x) = map(keys, spatial_axes(x))
+spatial_indices(x::MetaArray) = spatial_indices(parent(x))
 # first get the spatial_indices of the parent array and then index into the ones that aren't
 # dropped
 function spatial_indices(x::SubArray)
@@ -140,13 +122,8 @@ _axis_pixel_spacing(x) = 1
 
 Returns the spatial origin of `x`.
 """
-@inline function origin(x::MetaArray)
-    if has_metadata(x, :origin)
-        return metadata(x, :origin)
-    else
-        return spatial_first(x)
-    end
-end
+origin(x) = spatial_first(x)
+@inline origin(x::MetaArray) = getmeta(spatial_first, x, :origin)
 @inline function origin(x::Union{PermutedDimsArray,SubArray,Adjoint,Transpose})
     Static.permute(origin(parent(x)), to_spatialdims(typeof(x)))
 end
@@ -162,13 +139,7 @@ coordinates").
 By default this is computed from `pixel_spacing`, but you can set this
 manually using ImageMeta.
 """
-@inline function spatial_directions(x::X) where {X}
-    if has_metadata(x, :spatial_directions)
-        return spatial_directions(parent(x))
-    else
-        return _spatial_directions(pixel_spacing(x))
-    end
-end
+@inline spatial_directions(x::X) where {X} = _spatial_directions(pixel_spacing(x))
 function _spatial_directions(ps::NTuple{N,Any}) where {N}
     return ntuple(Val(N)) do i
         ntuple(Val(N)) do d

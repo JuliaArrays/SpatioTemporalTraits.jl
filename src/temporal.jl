@@ -18,27 +18,6 @@ function ArrayInterface.to_dims(::Type{T}, ::typeof(is_temporal)) where {T}
         return d
     end
 end
-#=
-@inline function ArrayInterface.to_dims(::Type{T}, ::typeof(is_temporal)) where {T}
-    _find_timedim(dimnames(T))
-    out = _to_timedim(dimnames(T), Static.nstatic(Val(ndims(T))))
-    if out === nothing
-        ArrayInterface.no_dimname_error(T, :time)
-    else
-        return out
-    end
-end
-
-
-_to_timedim(::Tuple{}, ::Tuple{}) = nothing
-function _to_timedim(dn::Tuple{Vararg{Any}}, dims::Tuple{Vararg{Any}})
-    if is_spatial(first(dn))
-        return getfield(dims, i)
-    else
-        return _to_spatialdims(tail(dn), tail(dims))
-    end
-end
-=#
 
 _find_timedim(d::StaticInt{0}, n::Tuple) where {D} = nothing
 @inline function _find_timedim(d::StaticInt{D}, n::Tuple) where {D}
@@ -49,7 +28,11 @@ _find_timedim(::False, d::StaticInt{D}, n::Tuple) where {D} = _find_timedim(d - 
 
 
 
-""" has_timedim(x) """
+"""
+    has_timedim(x) -> Bool
+
+Returns 'true' if `x` has a time dimension.
+"""
 has_timedim(x) = _find_timedim(static(ndims(x)), dimnames(x)) !== nothing
 
 
