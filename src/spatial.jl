@@ -4,8 +4,9 @@
 
 Returns `static(true)` if `x` refers to a spatial dimension. By default, any dimension that
 is not one of the following is considered spatial:
-* time or Time
-* channels or Channels
+* time, Time
+* channels, Channels
+* observations, Observations, obs
 """
 is_spatial(x::Symbol) = is_spatial(static(x))
 is_spatial(x) = is_spatial(typeof(x))
@@ -71,19 +72,7 @@ Return the number of spatial dimensions that `x` has.
 
 See also: [`spatialdims`](@ref), [`is_spatial`](@ref)
 """
-sdims(@nospecialize(x)) = sdims(typeof(x))
-sdims(::Type{T}) where {T} = _sdims(has_dimnames(T), T)
-_sdims(::True, ::Type{T}) where {T} = length(spatialdims(x))
-_sdims(::False, ::Type{T}) where {T} = min(ndims(x), 3)
-
-# FIXME we should use something like `is_regularly_sampled` to ensure this makes sense
-"""
-    spatial_size(x) -> Tuple{Vararg{Int}}
-
-Return a tuple listing the sizes of the spatial dimensions of the image.
-"""
-@inline spatial_size(x) =  map(_spatial_length, spatial_indices(x))
-_spatial_length(s) = last(s) - first(s) + step(s)
+@inline sdims(x) = length(spatialdims(x))
 
 """
     spatial_indices(x)
@@ -189,4 +178,31 @@ end
     end
     Expr(:block, Expr(:meta, :inline), out)
 end
+
+"""
+    width(x)
+
+Returns the size of the dimension corresponding to width.
+"""
+width(x) = _width(spatialdims(x), x)
+_width(::Union{Tuple{},Tuple{Any}}, x) = 1
+_width(dims::Union{Tuple{Any,Any},Tuple{Any,Any,Any}}, x) = size(x, getfield(dims, 2))
+
+"""
+    height(x)
+
+Returns the size of the dimension corresponding to height.
+"""
+height(x) = _height(spatialdims(x), x)
+_height(::Tuple{}, x) = 1
+_height(dims::Tuple, x) = size(x, getfield(dims, 1))
+
+"""
+    depth(x)
+
+Returns the size of the dimension corresponding to depth.
+"""
+depth(x) = _depth(spatialdims(x), x)
+_depth(::Union{Tuple{},Tuple{Any},Tuple{Any,Any}}, x) = 1
+_depth(dims::Tuple{Any,Any,Any}, x) = size(x, getfield(dims, 3))
 

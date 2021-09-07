@@ -26,15 +26,12 @@ end
 _find_timedim(::True, d::StaticInt{D}, n::Tuple) where {D} = d
 _find_timedim(::False, d::StaticInt{D}, n::Tuple) where {D} = _find_timedim(d - static(1), n)
 
-
-
 """
     has_timedim(x) -> Bool
 
 Returns 'true' if `x` has a time dimension.
 """
 has_timedim(x) = _find_timedim(static(ndims(x)), dimnames(x)) !== nothing
-
 
 """
     timedim(::Type{T}) -> Integer
