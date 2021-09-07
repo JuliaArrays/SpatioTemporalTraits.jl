@@ -76,8 +76,19 @@ x = NamedIndices{(:x, :y, :z, :time)}(
 
 no_time = view(x, :, :, 1:2, 1);
 
+@test SpatioTemporalTraits.is_spatial(:x) === static(true)
+@test SpatioTemporalTraits.is_temporal(:time) === static(true)
+# explicitly not spatial dimension
+t = static(:time)
+@test @inferred(SpatioTemporalTraits.is_spatial(t)) === static(false)
+# too many potential spatial dimensions
+@test @inferred(spatialdims(LinearIndices((2,2,2,2))))  === (static(1), static(2), static(3))
+# default pixel spacing
+@test @inferred(pixel_spacing(LinearIndices((2,2,2,2)))) == (1, 1, 1)
+
 ## No time dimension
 @test_throws ArgumentError timedim(no_time)
+@test_throws ArgumentError assert_timedim_last(no_time)
 @test !has_timedim(no_time)
 #@test ntimes(no_time) == 1
 @test @inferred(pixel_spacing(no_time)) === (2m, 2.0ft, 2mm)
@@ -95,7 +106,7 @@ no_time = view(x, :, :, 1:2, 1);
 @test @inferred(sdims(no_time)) == 3
 no_time_perm = PermutedDimsArray(no_time, (2, 1, 3))
 @test @inferred(spatial_indices(no_time_perm)) == ((1.0:2.0:9.0)ft, (1:2:9)m, (2:2:4)mm)
-
+@test @inferred(spatial_directions(no_time_perm)) == ((2.0ft, 0m, 0mm), (0.0ft, 2m, 0mm), (0.0ft, 0m, 2mm))
 
 mx = attach_metadata(no_time, Dict{Symbol,Any}());
 @test origin(mx) == (1m, 1.0ft, 2mm)

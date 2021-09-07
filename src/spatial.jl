@@ -4,13 +4,13 @@
 
 Returns `static(true)` if `x` refers to a spatial dimension. By default, any dimension that
 is not one of the following is considered spatial:
+
 * time, Time
 * channels, Channels
 * observations, Observations, obs
 """
 is_spatial(x::Symbol) = is_spatial(static(x))
 is_spatial(x) = is_spatial(typeof(x))
-is_spatial(::Type{T}) where {T} = static(false)
 is_spatial(::Type{StaticSymbol{sym}}) where {sym} = static(true)
 const NotSpatial = Union{StaticSymbol{:time},StaticSymbol{:Time}, StaticSymbol{:Channels},
     StaticSymbol{:channels},StaticSymbol{:color}, StaticSymbol{:Color},
@@ -46,9 +46,7 @@ end
 Return a tuple of the spatial dimensions of `x`. 
 """
 spatialdims(@nospecialize(x)) = spatialdims(typeof(x))
-@inline spatialdims(::Type{T}) where {T} = _spatialdims(has_dimnames(T), T)
-@inline _spatialdims(::True, ::Type{T}) where {T} = to_dims(T, is_spatial)
-@inline _spatialdims(::False, ::Type{T}) where {T} = ntuple(identity, Val(min(ndims(T), 3)))
+@inline spatialdims(::Type{T}) where {T} = to_dims(T, is_spatial)
 
 @inline spatial_axes(x) = _spatial_axes(x, spatialdims(x))
 _spatial_axes(x, ::Tuple{}) = ()
