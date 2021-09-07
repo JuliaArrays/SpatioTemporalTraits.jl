@@ -85,9 +85,11 @@ no_time = view(x, :, :, 1:2, 1);
 @test @inferred(spatialdims(no_time)) === (static(1), static(2), static(3))
 @test @inferred(spatial_order(no_time)) === (static(:x), static(:y), static(:z))
 @test @inferred(spatial_indices(no_time)) == ((1:2:9)m, (1.0:2.0:9.0)ft, (2:2:4)mm)
-@test @inferred(height(no_time)) == 5
 @test @inferred(width(no_time)) == 5
+@test @inferred(width(1:2)) == 1
+@test @inferred(height(no_time)) == 5
 @test @inferred(depth(no_time)) == 2
+@test @inferred(depth((1:2)')) == 1
 @test @inferred(origin(no_time)) == (1m, 1.0ft, 2mm)
 @test @inferred(spatial_last(no_time)) == (9m, 9.0ft, 4mm)
 @test @inferred(sdims(no_time)) == 3
@@ -104,7 +106,7 @@ metadata!(mx, :spatial_directions, ((1, 0, 0), (0, 1, 0), (0, 0, 1)))
 @test spatial_directions(mx) === ((1, 0, 0), (0, 1, 0), (0, 0, 1))
 
 ## time dimension
-assert_timedim_last(x)
+@test assert_timedim_last(x) === nothing
 @test @inferred(times(x)) == (1:4)s
 @test @inferred(has_timedim(x))
 @test @inferred(timedim(x)) === static(4)

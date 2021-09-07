@@ -7,8 +7,7 @@ Returns `True` if `x` refers to time.
 is_temporal(x::Symbol) = is_temporal(static(x))
 is_temporal(x) = is_temporal(typeof(x))
 is_temporal(::Type{T}) where {T} = static(false)
-is_temporal(::Type{StaticSymbol{:time}}) = static(true)
-is_temporal(::Type{StaticSymbol{:Time}}) = static(true)
+is_temporal(::Type{<:Union{StaticSymbol{:time},StaticSymbol{:Time}}}) = static(true)
 
 function ArrayInterface.to_dims(::Type{T}, ::typeof(is_temporal)) where {T}
     d = _find_timedim(static(ndims(T)), dimnames(T))
@@ -97,12 +96,8 @@ sampling_rate(x) = inv(time_step(x))
 Throw an error if the `x` has a time dimension that is not the last dimension.
 """
 @inline function assert_timedim_last(x)
-    if has_timedim(x)
-        if timedim(x) == ndims(x)
-            return nothing
-        else
-            throw(ArgumentError("time dimension is not last"))
-        end
+    if _find_timedim(static(ndims(x)), dimnames(x)) != ndims(x)
+        throw(ArgumentError("time dimension is not last"))
     else
         return nothing
     end

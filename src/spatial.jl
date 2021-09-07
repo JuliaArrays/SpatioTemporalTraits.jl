@@ -15,7 +15,7 @@ is_spatial(::Type{StaticSymbol{sym}}) where {sym} = static(true)
 const NotSpatial = Union{StaticSymbol{:time},StaticSymbol{:Time}, StaticSymbol{:Channels},
     StaticSymbol{:channels},StaticSymbol{:color}, StaticSymbol{:Color},
     StaticSymbol{:observations},StaticSymbol{:Observations},StaticSymbol{:obs}}
-is_spatial(::Type{NotSpatial}) = static(false)
+is_spatial(::Type{<:NotSpatial}) = static(false)
 
 
 @inline function ArrayInterface.to_dims(::Type{T}, ::typeof(is_spatial)) where {T}
@@ -48,7 +48,7 @@ Return a tuple of the spatial dimensions of `x`.
 spatialdims(@nospecialize(x)) = spatialdims(typeof(x))
 @inline spatialdims(::Type{T}) where {T} = _spatialdims(has_dimnames(T), T)
 @inline _spatialdims(::True, ::Type{T}) where {T} = to_dims(T, is_spatial)
-@inline _spatialdims(::False, ::Type{T}) where {T} = ntuple(identity, Val(min(ndims(x), 3)))
+@inline _spatialdims(::False, ::Type{T}) where {T} = ntuple(identity, Val(min(ndims(T), 3)))
 
 @inline spatial_axes(x) = _spatial_axes(x, spatialdims(x))
 _spatial_axes(x, ::Tuple{}) = ()
@@ -193,9 +193,7 @@ _width(dims::Union{Tuple{Any,Any},Tuple{Any,Any,Any}}, x) = size(x, getfield(dim
 
 Returns the size of the dimension corresponding to height.
 """
-height(x) = _height(spatialdims(x), x)
-_height(::Tuple{}, x) = 1
-_height(dims::Tuple, x) = size(x, getfield(dims, 1))
+height(x) = size(x, getfield(spatialdims(x), 1))
 
 """
     depth(x)
