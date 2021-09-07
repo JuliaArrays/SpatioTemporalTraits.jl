@@ -85,8 +85,15 @@ no_time = view(x, :, :, 1:2, 1);
 @test @inferred(spatialdims(no_time)) === (static(1), static(2), static(3))
 @test @inferred(spatial_order(no_time)) === (static(:x), static(:y), static(:z))
 @test @inferred(spatial_indices(no_time)) == ((1:2:9)m, (1.0:2.0:9.0)ft, (2:2:4)mm)
+@test @inferred(height(no_time)) == 5
+@test @inferred(width(no_time)) == 5
+@test @inferred(depth(no_time)) == 2
 @test @inferred(origin(no_time)) == (1m, 1.0ft, 2mm)
 @test @inferred(spatial_last(no_time)) == (9m, 9.0ft, 4mm)
+@test @inferred(sdims(no_time)) == 3
+no_time_perm = PermutedDimsArray(no_time, (2, 1, 3))
+@test @inferred(spatial_indices(no_time_perm)) == ((1.0:2.0:9.0)ft, (1:2:9)m, (2:2:4)mm)
+
 
 mx = attach_metadata(no_time, Dict{Symbol,Any}());
 @test origin(mx) == (1m, 1.0ft, 2mm)
@@ -102,5 +109,8 @@ assert_timedim_last(x)
 @test @inferred(has_timedim(x))
 @test @inferred(timedim(x)) === static(4)
 @test @inferred(ntimes(x)) == 4
+@test @inferred(duration(x)) == 4s
+@test @inferred(sampling_rate(x)) == inv(1s)
+
 
 

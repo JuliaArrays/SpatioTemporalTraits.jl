@@ -12,13 +12,12 @@ using LinearAlgebra
 export
     assert_timedim_last,
     duration,
-    each_time,
     has_timedim,
     ntimes,
     origin,
     pixel_spacing,
     sampling_rate,
-    select_time,
+    sdims,
     spatialdims,
     spatial_order,
     spatial_size,
@@ -30,8 +29,10 @@ export
     times,
     time_first,
     time_last,
-    time_step
-
+    time_step,
+    width,
+    depth,
+    height
 
 include("spatial.jl")
 include("temporal.jl")
