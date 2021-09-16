@@ -1,10 +1,11 @@
 name = "SpatioTemporalTraits"
 uuid = "6a04ffb7-1155-443c-92eb-f1f26f00354c"
 authors = ["Zachary P. Christensen <zchristensen7@gmail.com>"]
-version = "0.1.0"
+version = "0.1.1"
 
 [deps]
 ArrayInterface = "4fba245c-0d91-5ea0-9b3e-6abc04ee57a9"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Metadata = "4fb893c1-3164-4f58-823a-cb4c64eabb4f"
 Static = "aedffcd0-7271-4cad-89d0-dc628f76c6d3"
