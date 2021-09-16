@@ -8,6 +8,7 @@ is_temporal(x::Symbol) = is_temporal(static(x))
 is_temporal(x) = is_temporal(typeof(x))
 is_temporal(::Type{T}) where {T} = static(false)
 is_temporal(::Type{<:Union{StaticSymbol{:time},StaticSymbol{:Time}}}) = static(true)
+is_temporal(::Type{<:Dates.AbstractTime}) = static(true)
 
 function ArrayInterface.to_dims(::Type{T}, ::typeof(is_temporal)) where {T}
     d = _find_timedim(static(ndims(T)), dimnames(T))

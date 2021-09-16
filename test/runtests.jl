@@ -4,6 +4,7 @@ using Test
 using SpatioTemporalTraits
 using ArrayInterface
 using ArrayInterface: dimnames, to_dims
+using Dates
 using Metadata
 using Static
 using Unitful
@@ -78,6 +79,7 @@ no_time = view(x, :, :, 1:2, 1);
 
 @test SpatioTemporalTraits.is_spatial(:x) === static(true)
 @test SpatioTemporalTraits.is_temporal(:time) === static(true)
+@test SpatioTemporalTraits.is_temporal(now()) === static(true)
 # explicitly not spatial dimension
 t = static(:time)
 @test @inferred(SpatioTemporalTraits.is_spatial(t)) === static(false)

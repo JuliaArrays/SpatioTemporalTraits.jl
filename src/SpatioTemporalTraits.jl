@@ -2,6 +2,7 @@ module SpatioTemporalTraits
 
 using ArrayInterface
 using ArrayInterface: dimnames, has_dimnames, to_dims, parent_type, to_parent_dims
+using Dates
 using Metadata
 using Metadata: MetaArray, NoMetadata
 using Static
