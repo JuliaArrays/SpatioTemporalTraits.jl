@@ -36,6 +36,7 @@ export
     height
 
 include("spatial.jl")
+include("coordinate_systems.jl")
 include("temporal.jl")
 
 end # module
