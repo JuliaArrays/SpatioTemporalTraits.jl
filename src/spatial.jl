@@ -16,7 +16,12 @@ const NotSpatial = Union{StaticSymbol{:time},StaticSymbol{:Time}, StaticSymbol{:
     StaticSymbol{:channels},StaticSymbol{:color}, StaticSymbol{:Color},
     StaticSymbol{:observations},StaticSymbol{:Observations},StaticSymbol{:obs}}
 is_spatial(::Type{<:NotSpatial}) = static(false)
-
+is_spatial(::Type{T}) where {T<:Quantity} = is_spatial(unit(T))
+is_spatial(::Type{T}) where {T<:Unitful.Units{<:Any,D}} where {D} = is_spatial(D)
+is_spatial(::Type{<:Unitful.Dimensions{D}}) where {D} = _is_spatial_unit(D)
+@inline _is_spatial_unit(x::Tuple{Any,Vararg{Any}}) = _is_spatial_unit(tail(x))
+_is_spatial_unit(::Tuple{Unitful.Dimension{:Length},Vararg{Any}}) = static(true)
+_is_spatial_unit(::Tuple{}) = static(false)
 
 @inline function ArrayInterface.to_dims(::Type{T}, ::typeof(is_spatial)) where {T}
     _to_sdims(static(0), dimnames(T), Static.nstatic(Val(ndims(T))))
@@ -103,6 +108,13 @@ of the image. Derived from the step size of each element of `spatial_indices`.
 end
 _axis_pixel_spacing(x::AbstractRange) = step(x)
 _axis_pixel_spacing(x) = 1
+
+"""
+    spatial_units(x)
+
+Returns the `Unitful.unit` along all spaial dimensions.
+"""
+spatial_units(x) = map(unit, pixel_spacing(x))
 
 """
     origin(x) -> Tuple

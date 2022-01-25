@@ -6,6 +6,7 @@ using Dates
 using Metadata
 using Metadata: MetaArray, NoMetadata
 using Static
+using Unitful
 using Base: tail
 
 using LinearAlgebra
@@ -26,6 +27,8 @@ export
     spatial_first,
     spatial_last,
     spatial_directions,
+    spatial_units,
+    temporal_units,
     timedim,
     times,
     time_first,
