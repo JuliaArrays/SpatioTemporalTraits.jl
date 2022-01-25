@@ -79,7 +79,7 @@ no_time = view(x, :, :, 1:2, 1);
 
 @test SpatioTemporalTraits.is_spatial(:x) === static(true)
 @test @inferred(SpatioTemporalTraits.is_spatial(m)) === static(true)
-@test @inferred(SpatioTemporalTraits.is_spatial(m * m)) === static(true)
+@test @inferred(SpatioTemporalTraits.is_spatial(1(m*m))) === static(true)
 @test @inferred(SpatioTemporalTraits.is_spatial(s)) === static(false)
 @test @inferred(SpatioTemporalTraits.is_temporal(m)) === static(false)
 @test @inferred(SpatioTemporalTraits.is_temporal(s)) === static(true)
