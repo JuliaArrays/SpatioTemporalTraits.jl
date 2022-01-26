@@ -15,6 +15,7 @@ struct KeyedAxis{K,P<:AbstractUnitRange{Int}} <: AbstractUnitRange{Int}
     parent::P
 end
 KeyedAxis(k) = KeyedAxis(k, eachindex(k))
+Base.axes1(x::KeyedAxis) = x
 
 Base.keys(x::KeyedAxis) = getfield(x, :keys)
 
@@ -66,7 +67,6 @@ function _axes(axs::Tuple{Vararg{Any,N}}, dim) where {N}
     end
 end
 
-
 x = NamedIndices{(:x, :y, :z, :time)}(
     CartesianIndices((
         KeyedAxis((1:2:9)m),
@@ -78,6 +78,11 @@ x = NamedIndices{(:x, :y, :z, :time)}(
 no_time = view(x, :, :, 1:2, 1);
 
 @test SpatioTemporalTraits.is_spatial(:x) === static(true)
+@test @inferred(SpatioTemporalTraits.is_spatial(m)) === static(true)
+@test @inferred(SpatioTemporalTraits.is_spatial(1(m*m))) === static(true)
+@test @inferred(SpatioTemporalTraits.is_spatial(s)) === static(false)
+@test @inferred(SpatioTemporalTraits.is_temporal(m)) === static(false)
+@test @inferred(SpatioTemporalTraits.is_temporal(s)) === static(true)
 @test SpatioTemporalTraits.is_temporal(:time) === static(true)
 @test SpatioTemporalTraits.is_temporal(now()) === static(true)
 # explicitly not spatial dimension
@@ -95,6 +100,7 @@ t = static(:time)
 #@test ntimes(no_time) == 1
 @test @inferred(pixel_spacing(no_time)) === (2m, 2.0ft, 2mm)
 @test @inferred(spatial_directions(no_time)) === ((2m, 0.0ft, 0mm), (0m, 2.0ft, 0mm), (0m, 0.0ft, 2mm))
+@test @inferred(spatial_units(no_time)) === (m, ft, mm)
 @test @inferred(spatialdims(no_time)) === (static(1), static(2), static(3))
 @test @inferred(spatial_order(no_time)) === (static(:x), static(:y), static(:z))
 @test @inferred(spatial_indices(no_time)) == ((1:2:9)m, (1.0:2.0:9.0)ft, (2:2:4)mm)
@@ -121,11 +127,10 @@ metadata!(mx, :spatial_directions, ((1, 0, 0), (0, 1, 0), (0, 0, 1)))
 ## time dimension
 @test assert_timedim_last(x) === nothing
 @test @inferred(times(x)) == (1:4)s
+@test @inferred(temporal_units(x)) == s
 @test @inferred(has_timedim(x))
 @test @inferred(timedim(x)) === static(4)
 @test @inferred(ntimes(x)) == 4
 @test @inferred(duration(x)) == 4s
 @test @inferred(sampling_rate(x)) == inv(1s)
-
-
 

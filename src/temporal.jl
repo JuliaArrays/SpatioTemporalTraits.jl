@@ -9,6 +9,12 @@ is_temporal(x) = is_temporal(typeof(x))
 is_temporal(::Type{T}) where {T} = static(false)
 is_temporal(::Type{<:Union{StaticSymbol{:time},StaticSymbol{:Time}}}) = static(true)
 is_temporal(::Type{<:Dates.AbstractTime}) = static(true)
+is_temporal(::Type{T}) where {T<:Quantity} = is_spatial(unit(T))
+is_temporal(::Type{T}) where {T<:Unitful.Units{<:Any,D}} where {D} = is_temporal(D)
+is_temporal(::Type{<:Unitful.Dimensions{D}}) where {D} = _is_temporal_unit(D)
+@inline _is_temporal_unit(x::Tuple{Any,Vararg{Any}}) = _is_temporal_unit(tail(x))
+_is_temporal_unit(::Tuple{Unitful.Dimension{:Time},Vararg{Any}}) = static(true)
+_is_temporal_unit(::Tuple{}) = static(false)
 
 function ArrayInterface.to_dims(::Type{T}, ::typeof(is_temporal)) where {T}
     d = _find_timedim(static(ndims(T)), dimnames(T))
@@ -78,6 +84,13 @@ The time step/interval between each element.
 time_step(x) = step(times(x))
 
 """
+    temporal_units(x)
+
+Returns the `Unitful.unit` along the time dimensions.
+"""
+temporal_units(x) = unit(time_step(x))
+
+"""
     duration(x)
 
 Duration of the event along the time axis.
@@ -103,4 +116,3 @@ Throw an error if the `x` has a time dimension that is not the last dimension.
         return nothing
     end
 end
-
